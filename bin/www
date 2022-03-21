@@ -1,0 +1,148 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+const mongoose = require('mongoose');
+var app = require('../app');
+var debug = require('debug')('whatsapp-clone-backend:server');
+var http = require('http');
+// const pusher = require('../Pusher');
+/**
+ * Get port from environment and store in Express.
+ */
+ const Pusher = require("pusher");
+var port = normalizePort(process.env.PORT || '4000');
+app.set('port', port);
+
+
+
+
+//Connect to mongodb
+mongoose
+  .connect(
+    "mongodb+srv://darshanraut123:6aLRevjFyaijBfCA@cluster0.wg7kk.mongodb.net/whatsapp-clone?authSource=admin&replicaSet=atlas-11nl1e-shard-0&w=majority&readPreference=primary&appname=MongoDB%20Compass&retryWrites=true&ssl=true"
+  )
+  .then(() => {
+    console.log("DB config Connection string is valid");
+  })
+  .catch((error) => console.log("Error connecting", error));
+
+
+  const pusher = new Pusher({
+    appId: "1365107",
+    key: "4cc37002811aa87b2ca8",
+    secret: "7e5c07298725307398dc",
+    cluster: "ap2",
+    useTLS: true
+  });
+
+
+  const db = mongoose.connection;
+  db.once('open',()=>{
+    const msgCollection  = db.collection('messagecontents');
+
+    const changeStream = msgCollection.watch();
+
+    changeStream.on('change',(change)=>{
+      try{
+        if(change.operationType==='insert'){
+          const messagedetails = change.fullDocument;
+          pusher.trigger('messages','inserted',{
+            name:messagedetails.name,
+            message:messagedetails.message,
+            timestamp:messagedetails.timestamp
+          });
+        }
+        else{
+          console.log("Somethings is wrong!");
+        }
+  
+      }
+      catch(err){
+        console.log(err.message)
+      }
+            
+    });
+
+});
+  
+
+  
+
+  
+  
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
