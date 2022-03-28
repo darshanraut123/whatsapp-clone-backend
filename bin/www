@@ -11,12 +11,9 @@ var http = require('http');
 /**
  * Get port from environment and store in Express.
  */
- const Pusher = require("pusher");
+const Pusher = require("pusher");
 var port = normalizePort(process.env.PORT || '4000');
 app.set('port', port);
-
-
-
 
 //Connect to mongodb
 mongoose
@@ -29,49 +26,50 @@ mongoose
   .catch((error) => console.log("Error connecting", error));
 
 
-  const pusher = new Pusher({
-    appId: "1365107",
-    key: "4cc37002811aa87b2ca8",
-    secret: "7e5c07298725307398dc",
-    cluster: "ap2",
-    useTLS: true
+const pusher = new Pusher({
+  appId: "1368553",
+  key: "d9d7c2254368c190bf1f",
+  secret: "b96ee46fddfba08425d3",
+  cluster: "mt1",
+  useTLS: true
+});
+
+
+const db = mongoose.connection;
+db.once('open', () => {
+  const msgCollection = db.collection('messagecontents');
+
+  const changeStream = msgCollection.watch();
+
+  changeStream.on('change', (change) => {
+    try {
+      if (change.operationType === 'insert') {
+        const messagedetails = change.fullDocument;
+        pusher.trigger("my-channel", "my-event", {
+          _id: messagedetails._id,
+          name: messagedetails.name,
+          message: messagedetails.message,
+          timestamp: messagedetails.timestamp
+        });
+      }
+      else {
+        console.log("Somethings is wrong!");
+      }
+
+    }
+    catch (err) {
+      console.log(err.message)
+    }
+
   });
 
-
-  const db = mongoose.connection;
-  db.once('open',()=>{
-    const msgCollection  = db.collection('messagecontents');
-
-    const changeStream = msgCollection.watch();
-
-    changeStream.on('change',(change)=>{
-      try{
-        if(change.operationType==='insert'){
-          const messagedetails = change.fullDocument;
-          pusher.trigger('messages','inserted',{
-            name:messagedetails.name,
-            message:messagedetails.message,
-            timestamp:messagedetails.timestamp
-          });
-        }
-        else{
-          console.log("Somethings is wrong!");
-        }
-  
-      }
-      catch(err){
-        console.log(err.message)
-      }
-            
-    });
-
 });
-  
 
-  
 
-  
-  
+
+
+
+
 
 /**
  * Create HTTP server.
